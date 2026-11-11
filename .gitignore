@@ -5,3 +5,4 @@ node_modules/
 service-account*.json
 *firebase-adminsdk*.json
 save-token.sh
+copy-key.sh
