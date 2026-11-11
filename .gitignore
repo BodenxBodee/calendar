@@ -4,3 +4,4 @@ node_modules/
 *-service-account*.json
 service-account*.json
 *firebase-adminsdk*.json
+save-token.sh
