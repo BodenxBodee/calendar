@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Calendar</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1f1f1f" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Calendar">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Loading -->
+  <div id="splash" class="splash"><div class="spinner"></div></div>
+
+  <!-- Sign-in -->
+  <section id="auth-screen" class="auth" hidden>
+    <div class="auth-card">
+      <img src="icons/icon-192.png" alt="" class="auth-logo">
+      <h1>Calendar</h1>
+      <p class="muted">Sign in to sync your calendar across your devices.</p>
+      <button id="google-btn" class="btn btn-google">
+        <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Sign in with Google
+      </button>
+      <details class="auth-more">
+        <summary>Other ways to sign in</summary>
+        <form id="email-form" class="stack">
+          <input type="email" id="auth-email" placeholder="Email" autocomplete="email" required>
+          <input type="password" id="auth-pw" placeholder="Password (6+ characters)" autocomplete="current-password" minlength="6" required>
+          <div class="row">
+            <button class="btn btn-primary" type="submit" data-mode="in">Sign in</button>
+            <button class="btn" type="submit" data-mode="up">Create account</button>
+          </div>
+          <button class="link" type="button" id="reset-pw">Forgot password?</button>
+        </form>
+      </details>
+      <p id="auth-msg" class="auth-msg" role="alert"></p>
+    </div>
+  </section>
+
+  <!-- App -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <button class="icon-btn" id="menu-btn" aria-label="Menu" title="Menu">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      </button>
+      <div class="brand"><img src="icons/icon-192.png" alt=""><span>Calendar</span></div>
+      <button class="btn btn-outline" id="today-btn">Today</button>
+      <div class="nav-arrows">
+        <button class="icon-btn" id="prev-btn" aria-label="Previous" title="Previous">
+          <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="icon-btn" id="next-btn" aria-label="Next" title="Next">
+          <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+      </div>
+      <h1 id="title" class="title"></h1>
+      <div class="spacer"></div>
+      <span id="sync" class="sync" title=""></span>
+      <select id="view-select" class="view-select" aria-label="View">
+        <option value="day">Day</option>
+        <option value="week">Week</option>
+        <option value="month">Month</option>
+        <option value="agenda">Schedule</option>
+      </select>
+      <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
+    </header>
+
+    <div class="body">
+      <aside class="sidebar" id="sidebar">
+        <button class="create-btn" id="create-btn">
+          <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true"><path fill="#34A853" d="M16 16v14h4V20z"/><path fill="#4285F4" d="M30 16H20l-4 4h14z"/><path fill="#FBBC05" d="M6 16v4h10l4-4z"/><path fill="#EA4335" d="M20 16V6h-4v14z"/><path fill="none" d="M0 0h36v36H0z"/></svg>
+          <span>Create</span>
+        </button>
+        <div id="mini-cal" class="mini-cal"></div>
+        <div class="cal-list">
+          <div class="cal-list-head">
+            <span>My calendars</span>
+            <button class="icon-btn small" id="add-cal-btn" aria-label="Add calendar" title="Add calendar">
+              <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+          </div>
+          <ul id="cal-list"></ul>
+        </div>
+        <div id="local-note" class="local-note" hidden>
+          <strong>Local mode</strong>
+          Events are saved on this device only. Follow SETUP.md to turn on syncing.
+        </div>
+      </aside>
+      <div class="scrim" id="scrim"></div>
+      <main id="view" class="view" tabindex="-1"></main>
+    </div>
+
+    <button class="fab" id="fab" aria-label="Create event">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    </button>
+  </div>
+
+  <!-- Event details -->
+  <dialog id="details-dlg" class="dlg details">
+    <div class="dlg-actions-top">
+      <button class="icon-btn" data-act="edit" aria-label="Edit" title="Edit"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+      <button class="icon-btn" data-act="duplicate" aria-label="Duplicate" title="Duplicate"><svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg></button>
+      <button class="icon-btn" data-act="delete" aria-label="Delete" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+      <button class="icon-btn" data-act="close" aria-label="Close" title="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <div id="details-body"></div>
+  </dialog>
+
+  <!-- Event editor -->
+  <dialog id="event-dlg" class="dlg editor">
+    <form id="event-form" method="dialog" autocomplete="off">
+      <div class="editor-head">
+        <button class="icon-btn" type="button" data-act="cancel" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+      <input id="f-title" class="title-input" placeholder="Add title" maxlength="300">
+      <div class="field">
+        <svg class="f-icon" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+        <div class="f-body">
+          <label class="check"><input type="checkbox" id="f-allday"> All day</label>
+          <div class="dt-row"><span class="dt-label">Starts</span><input type="date" id="f-sdate" required><input type="time" id="f-stime" step="300"></div>
+          <div class="dt-row"><span class="dt-label">Ends</span><input type="date" id="f-edate" required><input type="time" id="f-etime" step="300"></div>
+          <select id="f-repeat"></select>
+          <div id="custom-rec" class="custom-rec" hidden>
+            <div class="row">Repeat every <input type="number" id="r-interval" min="1" max="99" value="1">
+              <select id="r-freq"><option value="DAILY">day</option><option value="WEEKLY">week</option><option value="MONTHLY">month</option><option value="YEARLY">year</option></select>
+            </div>
+            <div id="r-days" class="day-toggles"></div>
+            <div id="r-monthly" class="row" hidden><select id="r-monthmode"></select></div>
+            <div class="r-ends">
+              <span>Ends</span>
+              <label><input type="radio" name="r-end" value="never" checked> Never</label>
+              <label><input type="radio" name="r-end" value="until"> On <input type="date" id="r-until"></label>
+              <label><input type="radio" name="r-end" value="count"> After <input type="number" id="r-count" min="1" max="999" value="10"> times</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <svg class="f-icon" viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+        <div class="f-body"><div class="cal-pick"><span id="f-cal-dot" class="dot"></span><select id="f-cal"></select></div></div>
+      </div>
+      <div class="field">
+        <svg class="f-icon" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+        <div class="f-body"><div id="f-reminders" class="reminders"></div><button type="button" class="link" id="add-reminder">Add notification</button></div>
+      </div>
+      <div class="field">
+        <svg class="f-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+        <div class="f-body"><input id="f-location" placeholder="Add location" maxlength="500"></div>
+      </div>
+      <div class="field">
+        <svg class="f-icon" viewBox="0 0 24 24"><path d="M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z"/></svg>
+        <div class="f-body"><textarea id="f-notes" placeholder="Add description" rows="3" maxlength="10000"></textarea></div>
+      </div>
+      <p id="f-error" class="f-error" role="alert"></p>
+    </form>
+  </dialog>
+
+  <!-- Which occurrences? -->
+  <dialog id="scope-dlg" class="dlg small-dlg">
+    <form method="dialog">
+      <h2 id="scope-title">Edit recurring event</h2>
+      <label class="radio"><input type="radio" name="scope" value="this" checked> This event</label>
+      <label class="radio"><input type="radio" name="scope" value="following"> This and following events</label>
+      <label class="radio"><input type="radio" name="scope" value="all"> All events</label>
+      <div class="dlg-buttons"><button class="btn" value="cancel">Cancel</button><button class="btn btn-primary" value="ok">OK</button></div>
+    </form>
+  </dialog>
+
+  <!-- Confirm -->
+  <dialog id="confirm-dlg" class="dlg small-dlg">
+    <form method="dialog">
+      <p id="confirm-text"></p>
+      <div class="dlg-buttons"><button class="btn" value="cancel">Cancel</button><button class="btn btn-danger" value="ok" id="confirm-ok">Delete</button></div>
+    </form>
+  </dialog>
+
+  <!-- Calendar editor -->
+  <dialog id="cal-dlg" class="dlg small-dlg">
+    <form id="cal-form" method="dialog">
+      <h2 id="cal-dlg-title">New calendar</h2>
+      <input id="c-name" placeholder="Name" maxlength="100" required>
+      <div id="c-colors" class="swatches"></div>
+      <div class="dlg-buttons">
+        <button class="btn btn-danger-text" type="button" id="c-delete">Delete</button>
+        <div class="spacer"></div>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn btn-primary" value="ok">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog id="settings-dlg" class="dlg settings">
+    <div class="editor-head">
+      <h2>Settings</h2>
+      <div class="spacer"></div>
+      <button class="icon-btn" data-act="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+    </div>
+    <div id="settings-body" class="settings-body"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

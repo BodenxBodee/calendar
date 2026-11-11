@@ -1,0 +1,15 @@
+{
+  "name": "personal-calendar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal calendar PWA with Firebase sync. The Node dependencies are only for the reminder sender that runs on GitHub Actions.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "send-reminders": "node reminders/send.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "web-push": "^3.6.7"
+  }
+}

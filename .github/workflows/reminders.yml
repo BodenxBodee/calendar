@@ -1,0 +1,49 @@
+# Sends calendar reminders as push notifications. Free on public repositories.
+# GitHub runs scheduled jobs "about" every 5 minutes; under load they can be late.
+name: Send reminders
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}   # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: read
+  actions: write          # used by the keep-alive step below
+
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: deps-${{ hashFiles('package.json') }}
+      - run: npm install --no-audit --no-fund --omit=dev
+      - name: Send due reminders
+        run: node reminders/send.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+      # GitHub pauses scheduled jobs in repos with no activity for 60 days.
+      # Re-enabling the workflow through the API once a day keeps it running.
+      - name: Keep schedule alive
+        if: always()
+        run: |
+          if [ "$(date -u +%H%M)" \< "0010" ]; then
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/reminders.yml/enable" || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

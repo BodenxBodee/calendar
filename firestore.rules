@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Paste this into Firebase console → Firestore Database → Rules (SETUP.md, step 3).
+// Replace YOUR_EMAIL@gmail.com with the Google account you sign in with, so
+// nobody else can use your calendar (or your free quota).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isMe(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in ['your_email@gmail.com'];
+    }
+    match /users/{uid} {
+      allow read, write: if isMe(uid);
+      match /{document=**} {
+        allow read, write: if isMe(uid);
+      }
+    }
+  }
+}
