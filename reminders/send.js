@@ -22,7 +22,16 @@ if (!FIREBASE_SERVICE_ACCOUNT || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
   process.exit(0);
 }
 
-admin.initializeApp({ credential: admin.credential.cert(JSON.parse(FIREBASE_SERVICE_ACCOUNT)) });
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+} catch {
+  console.error('The Firebase key secret is not the contents of the .json key file. ' +
+    'Open the downloaded file in TextEdit, copy ALL of the text (it starts with { and contains "service_account"), ' +
+    'and paste that into the GitHub secret.');
+  process.exit(1);
+}
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 webpush.setVapidDetails(VAPID_SUBJECT || 'mailto:calendar-reminders@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
