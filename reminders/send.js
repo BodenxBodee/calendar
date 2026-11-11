@@ -22,13 +22,24 @@ if (!FIREBASE_SERVICE_ACCOUNT || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
   process.exit(0);
 }
 
-let serviceAccount;
-try {
-  serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-} catch {
-  console.error('The Firebase key secret is not the contents of the .json key file. ' +
-    'Open the downloaded file in TextEdit, copy ALL of the text (it starts with { and contains "service_account"), ' +
-    'and paste that into the GitHub secret.');
+function parseServiceAccount(raw) {
+  // Be forgiving: TextEdit may turn " into “ ”, and copies can pick up stray text around the braces.
+  let s = raw.trim().replace(/^﻿/, '').replace(/[“”„‟]/g, '"').replace(/[‘’]/g, "'");
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  try { return JSON.parse(s); } catch { /* fall through */ }
+  try { return JSON.parse(Buffer.from(raw.trim(), 'base64').toString('utf8')); } catch { /* fall through */ }
+  return null;
+}
+const serviceAccount = parseServiceAccount(FIREBASE_SERVICE_ACCOUNT);
+if (!serviceAccount || !serviceAccount.private_key) {
+  const raw = FIREBASE_SERVICE_ACCOUNT.trim();
+  // Safe clues only — never print the secret itself.
+  console.error('The Firebase key secret is not the contents of the .json key file.');
+  console.error(`Clues: ${raw.length} characters; starts with "{": ${raw.startsWith('{')}; ` +
+    `mentions service_account: ${raw.includes('service_account')}; mentions private_key: ${raw.includes('private_key')}; ` +
+    `has curly quotes: ${/[“”]/.test(raw)}.`);
+  console.error('Fix: open the downloaded .json file in TextEdit, press Cmd+A then Cmd+C, and paste it as the secret value.');
   process.exit(1);
 }
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
