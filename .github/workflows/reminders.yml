@@ -33,10 +33,11 @@ jobs:
       - name: Send due reminders
         run: node reminders/send.js
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          # Names of the secrets as saved in GitHub → Settings → Secrets → Actions
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASEADMIN }}
+          VAPID_PUBLIC_KEY: ${{ secrets.PUBLICKEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.PRIVATEKEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPIDSUBJECT }}
       # GitHub pauses scheduled jobs in repos with no activity for 60 days.
       # Re-enabling the workflow through the API once a day keeps it running.
       - name: Keep schedule alive

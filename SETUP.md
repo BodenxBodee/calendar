@@ -111,10 +111,10 @@ In your repository: **Settings → Secrets and variables → Actions → New rep
 
 | Name | Value |
 |---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | the entire contents of the `.json` file from 7b |
-| `VAPID_PUBLIC_KEY` | public key from 7a |
-| `VAPID_PRIVATE_KEY` | private key from 7a |
-| `VAPID_SUBJECT` | `mailto:` followed by your email, e.g. `mailto:me@gmail.com` |
+| `FIREBASEADMIN` | the entire contents of the `.json` file from 7b |
+| `PUBLICKEY` | public key from 7a |
+| `PRIVATEKEY` | private key from 7a |
+| `VAPIDSUBJECT` | `mailto:` followed by your email, e.g. `mailto:me@gmail.com` |
 
 Then delete the downloaded `.json` file from your computer (and empty the Trash).
 
