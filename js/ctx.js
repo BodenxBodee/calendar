@@ -6,7 +6,6 @@ export const app = {
   store: null,
   view: 'week',
   cursor: new Date(),
-  agendaDays: 60,
   occMap: new Map(), // rendered occurrence id -> occurrence
   render: () => {},
 };
@@ -29,7 +28,7 @@ export const isNarrow = () => window.matchMedia('(max-width: 800px)').matches;
 export function calOf(ev) {
   return app.store.calendarById(ev.calendarId) || { id: ev.calendarId, name: 'Calendar', color: '#616161' };
 }
-export const colorOf = (ev) => calOf(ev).color || '#039be5';
+export const colorOf = (ev) => calOf(ev).color || '#8c1d2f';
 
 export function visibleEvents() {
   const hidden = new Set(app.store.calendars.filter((c) => c.hidden).map((c) => c.id));
@@ -40,6 +39,25 @@ export function occurrences(start, end) {
   const list = expandAll(visibleEvents(), start, end);
   for (const o of list) app.occMap.set(o.id, o);
   return list;
+}
+
+// ── Completing events ──
+// An occurrence is complete if you ticked it (its date key is in event.doneKeys),
+// or automatically once its end time has passed (all-day: at the end of the day).
+
+export const isAutoDone = (o) => o.end <= new Date();
+export const isManualDone = (o) => (o.event.doneKeys || []).includes(o.key);
+export const isDone = (o) => isManualDone(o) || isAutoDone(o);
+
+export async function toggleDone(o) {
+  const master = app.store.eventById(o.event.id);
+  if (!master) return;
+  if (isAutoDone(o)) { toast('This event has already passed, so it’s completed automatically.'); return; }
+  const keys = new Set(master.doneKeys || []);
+  const nowDone = !keys.has(o.key);
+  if (nowDone) keys.add(o.key); else keys.delete(o.key);
+  await app.store.saveEvent({ ...master, doneKeys: [...keys] });
+  toast(nowDone ? 'Marked complete' : 'Marked not complete');
 }
 
 // ── Toast ──

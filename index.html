@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Calendar</title>
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1f1f1f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#1a1412">
+  <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
   <meta name="apple-mobile-web-app-title" content="Calendar">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
@@ -26,7 +29,7 @@
       <h1>Calendar</h1>
       <p class="muted">Sign in to sync your calendar across your devices.</p>
       <button id="google-btn" class="btn btn-google">
-        <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="currentColor" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="currentColor" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="currentColor" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         Sign in with Google
       </button>
       <details class="auth-more">
@@ -48,61 +51,68 @@
   <!-- App -->
   <div id="app" class="app" hidden>
     <header class="topbar">
-      <button class="icon-btn" id="menu-btn" aria-label="Menu" title="Menu">
-        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-      </button>
       <div class="brand"><img src="icons/icon-192.png" alt=""><span>Calendar</span></div>
-      <button class="btn btn-outline" id="today-btn">Today</button>
-      <div class="nav-arrows">
-        <button class="icon-btn" id="prev-btn" aria-label="Previous" title="Previous">
-          <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </button>
-        <button class="icon-btn" id="next-btn" aria-label="Next" title="Next">
-          <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-        </button>
+
+      <div class="date-nav">
+        <button class="btn btn-ghost" id="today-btn">Today</button>
+        <div class="nav-arrows">
+          <button class="icon-btn" id="prev-btn" aria-label="Previous" title="Previous (k)">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button class="icon-btn" id="next-btn" aria-label="Next" title="Next (j)">
+            <svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+          </button>
+        </div>
+        <h1 id="title" class="title"></h1>
       </div>
-      <h1 id="title" class="title"></h1>
+
       <div class="spacer"></div>
       <span id="sync" class="sync" title=""></span>
+
+      <!-- View switcher: buttons on wide screens, a dropdown on phones -->
+      <div class="seg" id="view-seg" role="tablist" aria-label="View">
+        <button data-view="day" role="tab" title="Day (d)">
+          <svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2zm12 8H5v10h14V10zM7 12h10v6H7v-6z"/></svg><span>Day</span></button>
+        <button data-view="week" role="tab" title="Week (w)">
+          <svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2zm12 8H5v10h14V10zM6 12h2v6H6v-6zm3.3 0h2v6h-2v-6zm3.4 0h2v6h-2v-6zm3.3 0h2v6h-2v-6z"/></svg><span>Week</span></button>
+        <button data-view="month" role="tab" title="Month (m)">
+          <svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2zm12 8H5v10h14V10zM7 12h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 16h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/></svg><span>Month</span></button>
+      </div>
       <select id="view-select" class="view-select" aria-label="View">
         <option value="day">Day</option>
         <option value="week">Week</option>
         <option value="month">Month</option>
-        <option value="agenda">Schedule</option>
       </select>
-      <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
-        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-      </button>
-    </header>
 
-    <div class="body">
-      <aside class="sidebar" id="sidebar">
-        <button class="create-btn" id="create-btn">
-          <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true"><path fill="#34A853" d="M16 16v14h4V20z"/><path fill="#4285F4" d="M30 16H20l-4 4h14z"/><path fill="#FBBC05" d="M6 16v4h10l4-4z"/><path fill="#EA4335" d="M20 16V6h-4v14z"/><path fill="none" d="M0 0h36v36H0z"/></svg>
-          <span>Create</span>
+      <div class="pop-wrap">
+        <button class="icon-btn tb-btn" id="cals-btn" aria-label="Calendars" title="Calendars" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24"><path d="M12 2 1 7.5l11 5.5 11-5.5L12 2zm0 13.24L3.23 10.9 1 12l11 5.5L23 12l-2.23-1.1L12 15.24zm0 4.5L3.23 15.4 1 16.5 12 22l11-5.5-2.23-1.1L12 19.74z"/></svg>
         </button>
-        <div id="mini-cal" class="mini-cal"></div>
-        <div class="cal-list">
+        <div class="popover" id="cals-pop" hidden>
           <div class="cal-list-head">
             <span>My calendars</span>
             <button class="icon-btn small" id="add-cal-btn" aria-label="Add calendar" title="Add calendar">
               <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
           </div>
-          <ul id="cal-list"></ul>
+          <ul id="cal-list" class="cal-list"></ul>
+          <div id="local-note" class="local-note" hidden>
+            <strong>Local mode</strong>
+            Events are saved on this device only.
+          </div>
         </div>
-        <div id="local-note" class="local-note" hidden>
-          <strong>Local mode</strong>
-          Events are saved on this device only. Follow SETUP.md to turn on syncing.
-        </div>
-      </aside>
-      <div class="scrim" id="scrim"></div>
-      <main id="view" class="view" tabindex="-1"></main>
-    </div>
+      </div>
 
-    <button class="fab" id="fab" aria-label="Create event">
-      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-    </button>
+      <button class="icon-btn tb-btn" id="settings-btn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
+
+      <button class="btn btn-primary create-btn" id="create-btn" title="Create event (c)">
+        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg><span>Create</span>
+      </button>
+    </header>
+
+    <main id="view" class="view" tabindex="-1"></main>
   </div>
 
   <!-- Event details -->

@@ -13,13 +13,14 @@ import { firebaseConfig } from './config.js';
 const FIREBASE_VERSION = '10.14.1';
 const FB = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
 
+// Event colours chosen to sit well on the mocha/bordeaux theme (white text stays readable).
 export const COLORS = [
-  { name: 'Tomato', value: '#d50000' }, { name: 'Flamingo', value: '#e67c73' },
-  { name: 'Tangerine', value: '#f4511e' }, { name: 'Banana', value: '#f6bf26' },
-  { name: 'Sage', value: '#33b679' }, { name: 'Basil', value: '#0b8043' },
-  { name: 'Peacock', value: '#039be5' }, { name: 'Blueberry', value: '#3f51b5' },
-  { name: 'Lavender', value: '#7986cb' }, { name: 'Grape', value: '#8e24aa' },
-  { name: 'Graphite', value: '#616161' }, { name: 'Cocoa', value: '#795548' },
+  { name: 'Bordeaux', value: '#8c1d2f' }, { name: 'Rose', value: '#b4566a' },
+  { name: 'Clay', value: '#b5623f' }, { name: 'Ochre', value: '#b0832f' },
+  { name: 'Olive', value: '#767a3e' }, { name: 'Sage', value: '#6b8765' },
+  { name: 'Pine', value: '#3f6b5e' }, { name: 'Brick', value: '#9b3b2f' },
+  { name: 'Wine', value: '#6d2233' }, { name: 'Plum', value: '#74466b' },
+  { name: 'Mocha', value: '#7a5c4a' }, { name: 'Taupe', value: '#8c7765' },
 ];
 
 export const DEFAULT_SETTINGS = { weekStart: 0, defaultReminder: 10, defaultAllDayReminder: 1440 };
@@ -69,7 +70,7 @@ class LocalStore extends BaseStore {
   _load() {
     let d = {};
     try { d = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { /* ignore */ }
-    this.calendars = d.calendars || [{ id: 'personal', name: 'Personal', color: '#039be5', order: 0 }];
+    this.calendars = d.calendars || [{ id: 'personal', name: 'Personal', color: '#8c1d2f', order: 0 }];
     this.events = d.events || [];
     this.settings = { ...DEFAULT_SETTINGS, ...(d.settings || {}) };
   }
@@ -165,7 +166,7 @@ class FirebaseStore extends BaseStore {
       this.calendars = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       if (snap.empty && !snap.metadata.fromCache && !this._creatingDefault) {
         this._creatingDefault = true;
-        this.saveCalendar({ id: 'personal', name: 'Personal', color: '#039be5', order: 0 });
+        this.saveCalendar({ id: 'personal', name: 'Personal', color: '#8c1d2f', order: 0 });
       }
       gotCals = true; markReady(); this.emit('data');
     }, this._err));

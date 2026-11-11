@@ -6,7 +6,7 @@ import {
 } from './dates.js';
 import { eventBounds, describeRecurrence } from './recurrence.js';
 import { newId } from './store.js';
-import { app, $, $$, esc, linkify, calOf, toast, showDialog, askScope, closeOnBackdrop } from './ctx.js';
+import { app, $, $$, esc, linkify, calOf, toast, showDialog, askScope, closeOnBackdrop, isDone, isAutoDone, toggleDone } from './ctx.js';
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -43,7 +43,10 @@ export function openDetails(o) {
       <div>${/^https?:\/\//.test(ev.location) ? linkify(ev.location) : `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}" target="_blank" rel="noopener">${esc(ev.location)}</a>`}</div>` : ''}
     ${ev.notes ? `${icon('M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z')}<div class="d-notes">${linkify(ev.notes)}</div>` : ''}
     ${rem ? `${icon('M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z')}<div>${rem}</div>` : ''}
-    ${icon('M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2zm3 18H5V8h14v11z')}<div>${esc(cal.name)}</div>`;
+    ${icon('M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2zm3 18H5V8h14v11z')}<div>${esc(cal.name)}</div>
+    <div class="d-complete">${isAutoDone(o)
+      ? '<span class="done-note"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>Completed automatically — this event has passed</span>'
+      : `<button class="btn ${isDone(o) ? '' : 'btn-primary'}" data-act="done"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>${isDone(o) ? 'Completed — undo' : 'Mark complete'}</button>`}</div>`;
   const dlg = $('#details-dlg');
   if (!dlg.open) dlg.showModal();
 }
@@ -407,6 +410,7 @@ export function initEditor() {
     if (act === 'edit') openEditor({ occ: o });
     if (act === 'duplicate') openEditor({ duplicate: o });
     if (act === 'delete') deleteOcc(o);
+    if (act === 'done') toggleDone(o);
   });
 
   const dlg = $('#event-dlg');

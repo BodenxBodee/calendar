@@ -1,6 +1,6 @@
 // Service worker: makes the app load offline and shows push reminders.
 // Bump VERSION whenever you change app files so devices pick up the update.
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.2.0';
 const CACHE = `calendar-${VERSION}`;
 
 const APP_FILES = [
@@ -32,7 +32,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
   const isSdk = req.url.startsWith(FIREBASE_SDK);
-  if (!sameOrigin && !isSdk) return; // Firestore / sign-in traffic goes straight to the network
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (!sameOrigin && !isSdk && !isFont) return; // Firestore / sign-in traffic goes straight to the network
 
   // Pages: network first so updates show up, fall back to cache offline.
   if (req.mode === 'navigate') {

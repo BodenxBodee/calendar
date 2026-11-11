@@ -39,7 +39,9 @@ export function buildQueue(events, now, tz) {
     const rems = (ev.reminders || []).filter((m) => Number.isFinite(m) && m >= 0);
     if (!rems.length) continue;
     const maxLead = Math.max(...rems) * 60000 + 86400000; // + a day for the all-day 9am anchor
+    const done = new Set(ev.doneKeys || []);
     for (const o of expandEvent(ev, new Date(from - 86400000), new Date(to + maxLead))) {
+      if (done.has(o.key)) continue; // completed early: no reminder needed
       for (const m of rems) {
         const at = reminderTime(o, m).getTime();
         if (at < from || at > to) continue;

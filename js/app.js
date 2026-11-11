@@ -1,12 +1,9 @@
-// App entry point: start-up, sign-in, top bar, sidebar, shortcuts.
+// App entry point: start-up, sign-in, top bar, shortcuts.
 
 import { createStore, COLORS } from './store.js';
-import {
-  addDays, startOfDay, startOfMonth, startOfWeek, sameDay, toDateKey, weekdayNames, fmt,
-} from './dates.js';
-import { expandAll } from './recurrence.js';
-import { app, $, $$, esc, toast, showDialog, confirmDialog, closeOnBackdrop, isNarrow, visibleEvents } from './ctx.js';
-import { renderView, viewTitle, viewRange, step, wireViewClicks } from './views.js';
+import { sameDay } from './dates.js';
+import { app, $, $$, esc, toast, showDialog, confirmDialog, closeOnBackdrop, isNarrow } from './ctx.js';
+import { renderView, viewTitle, step, wireViewClicks } from './views.js';
 import { initEditor, openEditor } from './editor.js';
 import { initSettings, openSettings, enablePush } from './settings.js';
 
@@ -29,70 +26,21 @@ function renderNow() {
   $('#title').textContent = viewTitle();
   document.title = `Calendar – ${viewTitle()}`;
   $('#view-select').value = app.view;
+  $$('#view-seg button').forEach((b) => {
+    const on = b.dataset.view === app.view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on);
+  });
   renderView($('#view'));
-  renderMini();
   renderCalList();
   renderSync();
 }
 
 app.setView = (v) => {
   app.view = v;
-  if (v === 'agenda') app.agendaDays = 60;
   LS.set('cal-view', v);
   app.render();
 };
-
-// ───────────────────────────── Mini calendar ─────────────────────────────
-
-let miniMonth = null; // month shown in the mini calendar (null = follow cursor)
-
-function renderMini() {
-  const shown = miniMonth || startOfMonth(app.cursor);
-  const ws = app.store.settings.weekStart ?? 0;
-  const gs = startOfWeek(shown, ws);
-  const today = new Date();
-  const { start: rs, end: re } = viewRange();
-  const occDays = new Set();
-  for (const o of expandAll(visibleEvents(), gs, addDays(gs, 42))) {
-    for (let d = startOfDay(o.start); d < o.end; d = addDays(d, 1)) occDays.add(toDateKey(d));
-  }
-  const names = weekdayNames('narrow');
-  let html = `<div class="mini-head"><span>${fmt(shown, { month: 'long', year: 'numeric' })}</span><span>
-    <button class="icon-btn small" data-mini="-1" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-    <button class="icon-btn small" data-mini="1" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></button></span></div><div class="mini-grid">`;
-  for (let i = 0; i < 7; i++) html += `<div class="wd">${names[(ws + i) % 7]}</div>`;
-  for (let i = 0; i < 42; i++) {
-    const d = addDays(gs, i);
-    const cls = [
-      d.getMonth() !== shown.getMonth() && 'other',
-      sameDay(d, today) && 'today',
-      app.view !== 'month' && app.view !== 'agenda' && d >= rs && d < re && !sameDay(d, today) && 'in-range',
-      occDays.has(toDateKey(d)) && 'has-ev',
-    ].filter(Boolean).join(' ');
-    html += `<button class="${cls}" data-day="${toDateKey(d)}">${d.getDate()}</button>`;
-  }
-  $('#mini-cal').innerHTML = html + '</div>';
-}
-
-function wireMini() {
-  $('#mini-cal').addEventListener('click', (e) => {
-    const nav = e.target.closest('[data-mini]');
-    if (nav) {
-      const cur = miniMonth || startOfMonth(app.cursor);
-      miniMonth = new Date(cur.getFullYear(), cur.getMonth() + Number(nav.dataset.mini), 1);
-      renderMini();
-      return;
-    }
-    const day = e.target.closest('[data-day]');
-    if (day) {
-      app.cursor = new Date(day.dataset.day + 'T00:00');
-      miniMonth = null;
-      if (app.view === 'agenda') app.agendaDays = 60;
-      closeDrawer();
-      app.render();
-    }
-  });
-}
 
 // ───────────────────────────── Calendars list ─────────────────────────────
 
@@ -138,9 +86,9 @@ function wireCalList() {
   });
   $('#cal-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-edit-cal]');
-    if (b) openCalendarDialog(app.store.calendarById(b.dataset.editCal));
+    if (b) { toggleCalendars(false); openCalendarDialog(app.store.calendarById(b.dataset.editCal)); }
   });
-  $('#add-cal-btn').onclick = () => openCalendarDialog(null);
+  $('#add-cal-btn').onclick = () => { toggleCalendars(false); openCalendarDialog(null); };
   closeOnBackdrop($('#cal-dlg'));
 }
 
@@ -155,27 +103,33 @@ function renderSync() {
   el.title = st === 'local' ? 'Saved on this device only (Firebase not set up yet)' : label;
 }
 
-// ───────────────────────────── Drawer / sidebar ─────────────────────────────
+// ───────────────────────────── Top bar ─────────────────────────────
 
-function closeDrawer() { $('#app').classList.remove('sidebar-open'); }
+function toggleCalendars(open) {
+  const pop = $('#cals-pop');
+  const show = open ?? pop.hidden;
+  pop.hidden = !show;
+  $('#cals-btn').setAttribute('aria-expanded', show);
+  $('#cals-btn').classList.toggle('on', show);
+}
 
 function wireShell() {
-  $('#menu-btn').onclick = () => {
-    const a = $('#app');
-    if (isNarrow()) a.classList.toggle('sidebar-open');
-    else { a.classList.toggle('sidebar-collapsed'); LS.set('cal-sidebar-collapsed', a.classList.contains('sidebar-collapsed')); setTimeout(app.render, 220); }
-  };
-  $('#scrim').onclick = closeDrawer;
-  $('#today-btn').onclick = () => { app.cursor = new Date(); miniMonth = null; app.render(); };
-  $('#prev-btn').onclick = () => { step(-1); miniMonth = null; app.render(); };
-  $('#next-btn').onclick = () => { step(1); miniMonth = null; app.render(); };
+  $('#today-btn').onclick = () => { app.cursor = new Date(); app.render(); };
+  $('#prev-btn').onclick = () => { step(-1); app.render(); };
+  $('#next-btn').onclick = () => { step(1); app.render(); };
   $('#view-select').onchange = (e) => app.setView(e.target.value);
-  $('#settings-btn').onclick = () => openSettings();
-  $('#create-btn').onclick = () => openEditor({ start: defaultStart(), end: addHour(defaultStart()) });
-  $('#fab').onclick = () => openEditor({ start: defaultStart(), end: addHour(defaultStart()) });
-  if (LS.get('cal-sidebar-collapsed', false)) $('#app').classList.add('sidebar-collapsed');
+  $('#view-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view]');
+    if (b) app.setView(b.dataset.view);
+  });
+  $('#settings-btn').onclick = () => { toggleCalendars(false); openSettings(); };
+  $('#create-btn').onclick = () => { toggleCalendars(false); openEditor({ start: defaultStart(), end: addHour(defaultStart()) }); };
+  $('#cals-btn').onclick = (e) => { e.stopPropagation(); toggleCalendars(); };
+  document.addEventListener('click', (e) => {
+    if (!$('#cals-pop').hidden && !e.target.closest('.pop-wrap') && !e.target.closest('dialog')) toggleCalendars(false);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleCalendars(false); });
   wireViewClicks($('#view'));
-  wireMini();
   wireCalList();
 
   let lastW = innerWidth;
@@ -191,7 +145,7 @@ function wireShell() {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
     const k = e.key.toLowerCase();
-    const map = { d: 'day', w: 'week', m: 'month', a: 'agenda' };
+    const map = { d: 'day', w: 'week', m: 'month' };
     if (map[k]) { app.setView(map[k]); e.preventDefault(); }
     else if (k === 't') $('#today-btn').click();
     else if (k === 'j' || k === 'n' || e.key === 'ArrowRight') $('#next-btn').click();
@@ -204,12 +158,11 @@ function wireShell() {
   const view = $('#view');
   view.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });
   view.addEventListener('touchend', (e) => {
-    if (app.view === 'agenda') return;
+    if (app.view !== 'month') return; // day/week scroll sideways, so swipe is only for month
     const t = e.changedTouches[0];
     const dx = t.clientX - sx, dy = t.clientY - sy;
     if (Date.now() - st < 600 && Math.abs(dx) > 70 && Math.abs(dy) < 50) {
       step(dx < 0 ? 1 : -1);
-      miniMonth = null;
       app.render();
     }
   }, { passive: true });
@@ -218,7 +171,7 @@ function wireShell() {
 function defaultStart() {
   const n = new Date();
   const c = app.cursor;
-  const base = sameDay(c, n) || app.view === 'agenda' ? n : new Date(c.getFullYear(), c.getMonth(), c.getDate(), 9);
+  const base = sameDay(c, n) ? n : new Date(c.getFullYear(), c.getMonth(), c.getDate(), 9);
   return new Date(base.getFullYear(), base.getMonth(), base.getDate(), base.getHours() + (base === n ? 1 : 0));
 }
 const addHour = (d) => new Date(d.getTime() + 3600000);
@@ -302,6 +255,7 @@ async function onDenied() {
 
 async function start() {
   app.view = LS.get('cal-view', isNarrow() ? 'month' : 'week');
+  if (!['day', 'week', 'month'].includes(app.view)) app.view = 'month';
   initEditor();
   initSettings();
   wireShell();
