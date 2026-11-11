@@ -15,4 +15,4 @@ export const firebaseConfig = {
 };
 
 // Public half of your push-notification key pair (see SETUP.md, step 6).
-export const vapidPublicKey = '';
+export const vapidPublicKey = 'BLxNpKxiSepyAEaTN6LmJLwpCaq4432TvhoaFKMmqCHhWg6LP0TZD9IRLJSzaR0oCeOsvqpQdKHQypn186ku2y0';

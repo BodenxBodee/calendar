@@ -1,6 +1,6 @@
 // Service worker: makes the app load offline and shows push reminders.
 // Bump VERSION whenever you change app files so devices pick up the update.
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const CACHE = `calendar-${VERSION}`;
 
 const APP_FILES = [
