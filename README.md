@@ -16,7 +16,9 @@ A personal calendar app, synced across iPhone/iPad, Mac and Windows, running ent
 |---|---|
 | `js/config.js` | Firebase settings |
 | `js/app.js` | Start-up, sign-in, top bar, shortcuts, auto-updates |
-| `js/views.js` | Day and Week (time runs left → right) and Month |
+| `js/today.js` | The Today screen (countdown, progress, swipe to complete / push to tomorrow) |
+| `js/quickadd.js` | Plain-words quick add ("Dentist tue 3pm") |
+| `js/views.js` | Month view (drag events between days) |
 | `js/editor.js` | Event details and the edit form (repeat rules, completing events) |
 | `js/settings.js` | Settings, import, backup |
 | `js/store.js` | Data layer (local mode or Firebase) |
@@ -27,4 +29,4 @@ A personal calendar app, synced across iPhone/iPad, Mac and Windows, running ent
 
 ## Keyboard shortcuts
 
-`c` create · `t` today · `d` / `w` / `m` day/week/month · `j`/`k` or ←/→ next/previous
+`c` quick add · `t` jump to today · `a` Today screen · `m` Month · `j`/`k` or ←/→ next/previous

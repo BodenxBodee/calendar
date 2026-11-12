@@ -195,6 +195,7 @@ function readRecurrence() {
  * openEditor({ occ })                      edit an existing occurrence
  * openEditor({ start, end, allDay })       new event
  * openEditor({ duplicate: occ })           new event copied from occ
+ * openEditor({ prefill: {...}, start, end, allDay })   new event with fields filled in (quick add)
  */
 export function openEditor(opts = {}) {
   const store = app.store;
@@ -220,7 +221,9 @@ export function openEditor(opts = {}) {
       data = {
         title: '', allDay: !!opts.allDay, recurrence: null, location: '', notes: '',
         calendarId: app.lastCalendarId && store.calendarById(app.lastCalendarId) ? app.lastCalendarId : store.defaultCalendarId(),
+        ...(opts.prefill || {}),
       };
+      if (!data.calendarId) data.calendarId = store.defaultCalendarId();
     }
   }
 
@@ -315,27 +318,92 @@ async function save() {
   // Repeating event: which ones?
   const scope = await askScope('Edit recurring event', true);
   if (!scope) return;
-  const masterStart = eventBounds(master).start;
-  const isFirst = occ.key === toDateKey(masterStart);
-
-  if (scope === 'this') {
-    master.exdates = [...new Set([...(master.exdates || []), occ.key])];
-    await store.saveEvent(master);
-    await store.saveEvent({ ...data, recurrence: null, exdates: [], id: newId(), createdAt: Date.now() });
-  } else if (scope === 'all' || isFirst) {
-    await store.saveEvent(applyToSeries(master, data, occ));
-  } else {
-    // This and following: end the old series the day before, start a new one here.
-    const oldRec = { ...master.recurrence, until: toDateKey(addDays(fromDateKey(occ.key), -1)), count: null };
-    await store.saveEvent({ ...master, recurrence: oldRec });
-    const newRec = data.recurrence && master.recurrence.count ? { ...data.recurrence, count: null } : data.recurrence;
-    await store.saveEvent({
-      ...data, recurrence: newRec, id: newId(), createdAt: Date.now(),
-      exdates: (master.exdates || []).filter((k) => k > occ.key),
-    });
-  }
+  await commitRecurring(master, occ, data, scope);
   $('#event-dlg').close();
   toast('Event saved');
+}
+
+/**
+ * Save a change made to one occurrence of a repeating event.
+ * scope: 'this' | 'following' | 'all'. Returns the id of any new event created.
+ */
+async function commitRecurring(master, occ, data, scope) {
+  const store = app.store;
+  const isFirst = occ.key === toDateKey(eventBounds(master).start);
+  if (scope === 'this') {
+    await store.saveEvent({ ...master, exdates: [...new Set([...(master.exdates || []), occ.key])] });
+    const id = newId();
+    await store.saveEvent({ ...data, recurrence: null, exdates: [], doneKeys: [], id, createdAt: Date.now() });
+    return id;
+  }
+  if (scope === 'all' || isFirst) {
+    await store.saveEvent(applyToSeries(master, data, occ));
+    return null;
+  }
+  // This and following: end the old series the day before, start a new one here.
+  const oldRec = { ...master.recurrence, until: toDateKey(addDays(fromDateKey(occ.key), -1)), count: null };
+  await store.saveEvent({ ...master, recurrence: oldRec });
+  const newRec = data.recurrence && master.recurrence.count ? { ...data.recurrence, count: null } : data.recurrence;
+  const id = newId();
+  await store.saveEvent({
+    ...data, recurrence: newRec, id, createdAt: Date.now(),
+    exdates: (master.exdates || []).filter((k) => k > occ.key),
+  });
+  return id;
+}
+
+/** The stored-event fields for `master` moved to new start/end (end exclusive for all-day). */
+function movedData(master, start, end) {
+  const data = {
+    title: master.title, allDay: !!master.allDay, calendarId: master.calendarId,
+    recurrence: master.recurrence || null, location: master.location || '', notes: master.notes || '',
+  };
+  if (data.allDay) {
+    data.start = toDateKey(start);
+    const last = addDays(startOfDay(end), -1);
+    data.end = toDateKey(last < start ? start : last);
+  } else {
+    data.start = start.toISOString();
+    data.end = end.toISOString();
+  }
+  return data;
+}
+
+/**
+ * Move an occurrence to a new time (drag & drop, push to tomorrow).
+ * For repeating events, `scope` can be preset; otherwise you're asked.
+ * Shows an "Undo" toast. Resolves true if something changed.
+ */
+export async function rescheduleOcc(o, start, end, { scope = null, message = 'Event moved' } = {}) {
+  const store = app.store;
+  const master = store.eventById(o.event.id);
+  if (!master) return false;
+  if (start.getTime() === o.start.getTime() && end.getTime() === o.end.getTime()) return false;
+  const before = clone(master);
+  const data = movedData(master, start, end);
+  let createdId = null;
+  if (!master.recurrence) {
+    // Moving a completed one-off event un-completes it only if it moves to another day.
+    const doneKeys = (master.doneKeys || []).filter((k) => k !== o.key || sameDay(start, o.start));
+    await store.saveEvent({ ...master, ...data, doneKeys });
+  } else {
+    const s = scope || await askScope('Move recurring event', true);
+    if (!s) return false;
+    createdId = await commitRecurring(master, o, data, s);
+  }
+  toast(message, {
+    label: 'Undo',
+    run: async () => {
+      await store.saveEvent(clone(before));
+      if (createdId) await store.deleteEvent(createdId);
+    },
+  });
+  return true;
+}
+
+/** Push an occurrence to the same time tomorrow (only this one, for repeating events). */
+export function pushToTomorrow(o) {
+  return rescheduleOcc(o, addDays(o.start, 1), addDays(o.end, 1), { scope: 'this', message: 'Moved to tomorrow' });
 }
 
 /** Apply edits made on one occurrence to the whole series (shifting the series start if needed). */
@@ -369,6 +437,7 @@ export function initEditor() {
     if (act === 'duplicate') openEditor({ duplicate: o });
     if (act === 'delete') deleteOcc(o);
     if (act === 'done') toggleDone(o);
+    if (act === 'tomorrow') pushToTomorrow(o);
   });
 
   const dlg = $('#event-dlg');

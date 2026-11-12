@@ -1,6 +1,6 @@
 // Service worker: makes the app load offline, and installs updates automatically.
 // Bump VERSION whenever you change app files so devices pick up the update.
-const VERSION = 'v1.3.1';
+const VERSION = 'v1.4.0';
 const CACHE = `calendar-${VERSION}`;
 
 const APP_FILES = [
@@ -8,7 +8,7 @@ const APP_FILES = [
   'index.html',
   'css/styles.css',
   'js/app.js', 'js/config.js', 'js/ctx.js', 'js/dates.js', 'js/editor.js',
-  'js/ics.js', 'js/recurrence.js', 'js/settings.js', 'js/store.js', 'js/views.js',
+  'js/ics.js', 'js/quickadd.js', 'js/recurrence.js', 'js/settings.js', 'js/store.js', 'js/today.js', 'js/views.js',
   'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];

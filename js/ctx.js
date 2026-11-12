@@ -4,7 +4,7 @@ import { expandAll } from './recurrence.js';
 
 export const app = {
   store: null,
-  view: 'week',
+  view: 'today',
   cursor: new Date(),
   occMap: new Map(), // rendered occurrence id -> occurrence
   render: () => {},

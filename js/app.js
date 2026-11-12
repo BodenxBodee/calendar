@@ -1,11 +1,11 @@
 // App entry point: start-up, sign-in, top bar, shortcuts.
 
 import { createStore, COLORS } from './store.js';
-import { sameDay } from './dates.js';
 import { app, $, $$, esc, toast, showDialog, confirmDialog, closeOnBackdrop, isNarrow } from './ctx.js';
 import { renderView, viewTitle, step, wireViewClicks } from './views.js';
-import { initEditor, openEditor } from './editor.js';
+import { initEditor } from './editor.js';
 import { initSettings, openSettings } from './settings.js';
+import { initQuickAdd, openQuickAdd, closeQuickAdd } from './quickadd.js';
 
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -25,7 +25,6 @@ function renderNow() {
   if (!app.store?.user || $('#app').hidden) return;
   $('#title').textContent = viewTitle();
   document.title = `Calendar – ${viewTitle()}`;
-  $('#view-select').value = app.view;
   $$('#view-seg button').forEach((b) => {
     const on = b.dataset.view === app.view;
     b.classList.toggle('on', on);
@@ -117,13 +116,18 @@ function wireShell() {
   $('#today-btn').onclick = () => { app.cursor = new Date(); app.render(); };
   $('#prev-btn').onclick = () => { step(-1); app.render(); };
   $('#next-btn').onclick = () => { step(1); app.render(); };
-  $('#view-select').onchange = (e) => app.setView(e.target.value);
   $('#view-seg').addEventListener('click', (e) => {
     const b = e.target.closest('[data-view]');
     if (b) app.setView(b.dataset.view);
   });
   $('#settings-btn').onclick = () => { toggleCalendars(false); openSettings(); };
-  $('#create-btn').onclick = () => { toggleCalendars(false); openEditor({ start: defaultStart(), end: addHour(defaultStart()) }); };
+  $('#create-btn').onclick = (e) => {
+    e.stopPropagation();
+    toggleCalendars(false);
+    if (!$('#qa').hidden) { closeQuickAdd(); return; }
+    // On the Today screen, events without a typed date go on the day you're looking at.
+    openQuickAdd(app.view === 'today' ? app.cursor : null);
+  };
   $('#cals-btn').onclick = (e) => { e.stopPropagation(); toggleCalendars(); };
   document.addEventListener('click', (e) => {
     if (!$('#cals-pop').hidden && !e.target.closest('.pop-wrap') && !e.target.closest('dialog')) toggleCalendars(false);
@@ -145,7 +149,7 @@ function wireShell() {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
     const k = e.key.toLowerCase();
-    const map = { d: 'day', w: 'week', m: 'month' };
+    const map = { a: 'today', m: 'month' };
     if (map[k]) { app.setView(map[k]); e.preventDefault(); }
     else if (k === 't') $('#today-btn').click();
     else if (k === 'j' || k === 'n' || e.key === 'ArrowRight') $('#next-btn').click();
@@ -167,14 +171,6 @@ function wireShell() {
     }
   }, { passive: true });
 }
-
-function defaultStart() {
-  const n = new Date();
-  const c = app.cursor;
-  const base = sameDay(c, n) ? n : new Date(c.getFullYear(), c.getMonth(), c.getDate(), 9);
-  return new Date(base.getFullYear(), base.getMonth(), base.getDate(), base.getHours() + (base === n ? 1 : 0));
-}
-const addHour = (d) => new Date(d.getTime() + 3600000);
 
 // ───────────────────────────── Sign-in ─────────────────────────────
 
@@ -254,10 +250,13 @@ async function onDenied() {
 // ───────────────────────────── Start-up ─────────────────────────────
 
 async function start() {
-  app.view = LS.get('cal-view', isNarrow() ? 'month' : 'week');
-  if (!['day', 'week', 'month'].includes(app.view)) app.view = 'month';
+  app.view = LS.get('cal-view', 'today');
+  // Phones open on the new Today screen once (after that, whatever you last used).
+  if (isNarrow() && !LS.get('cal-today-intro', false)) { app.view = 'today'; LS.set('cal-today-intro', true); }
+  if (!['today', 'month'].includes(app.view)) app.view = 'today'; // Day/Week were removed
   initEditor();
   initSettings();
+  initQuickAdd();
   wireShell();
   wireAuth();
 
@@ -321,7 +320,8 @@ function registerServiceWorker() {
     reloading = true;
     // Don't yank the page away while an event or settings window is open.
     const reloadWhenIdle = () => {
-      if (document.querySelector('dialog[open]')) { setTimeout(reloadWhenIdle, 1500); return; }
+      const typing = !$('#qa').hidden || document.activeElement?.id === 'td-qa-input';
+      if (document.querySelector('dialog[open]') || typing) { setTimeout(reloadWhenIdle, 1500); return; }
       location.reload();
     };
     reloadWhenIdle();

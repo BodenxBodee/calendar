@@ -1,64 +1,50 @@
-// Renders the main area: Day and Week (time runs left → right) and Month.
+// Renders the main area: the Today screen and Month.
 
 import {
   DAY_MS, addDays, startOfDay, startOfWeek, startOfMonth, sameDay, diffDays, toDateKey,
-  fmt, fmtTimeShort, fmtTimeRange, fmtHourLabel, weekdayNames,
+  fmt, fmtTimeShort, weekdayNames,
 } from './dates.js';
 import { app, esc, colorOf, occurrences, isNarrow, isDone, isAutoDone, toggleDone } from './ctx.js';
-import { openDetails, openEditor } from './editor.js';
+import { openDetails, rescheduleOcc, pushToTomorrow } from './editor.js';
+import { renderToday } from './today.js';
+import { openQuickAdd } from './quickadd.js';
 
 // ── Ranges & titles ──
 
 export function viewRange(view = app.view, cursor = app.cursor) {
+  if (view === 'today') { const s = startOfDay(cursor); return { start: s, end: addDays(s, 1) }; }
   const ws = app.store.settings.weekStart ?? 0;
-  switch (view) {
-    case 'day': { const s = startOfDay(cursor); return { start: s, end: addDays(s, 1) }; }
-    case 'week': { const s = startOfWeek(cursor, ws); return { start: s, end: addDays(s, 7) }; }
-    default: {
-      const first = startOfMonth(cursor);
-      const s = startOfWeek(first, ws);
-      const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-      const weeks = Math.ceil((diffDays(s, last) + 1) / 7);
-      return { start: s, end: addDays(s, weeks * 7) };
-    }
-  }
+  const first = startOfMonth(cursor);
+  const s = startOfWeek(first, ws);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const weeks = Math.ceil((diffDays(s, last) + 1) / 7);
+  return { start: s, end: addDays(s, weeks * 7) };
 }
 
 export function viewTitle() {
   const c = app.cursor;
-  const { start, end } = viewRange();
-  const last = addDays(end, -1);
-  if (isNarrow()) {
-    // Phones: keep it short — "Nov", "Nov 11", or "Nov 2027" when not this year.
-    const d = app.view === 'week' ? addDays(start, 3) : c;
-    const thisYear = d.getFullYear() === new Date().getFullYear();
-    if (app.view === 'day') return fmt(c, { month: 'short', day: 'numeric', ...(thisYear ? {} : { year: 'numeric' }) });
-    return fmt(d, { month: 'short', ...(thisYear ? {} : { year: 'numeric' }) });
+  const narrow = isNarrow();
+  if (app.view === 'today') {
+    const isToday = sameDay(c, new Date());
+    if (narrow) return isToday ? 'Today' : fmt(c, { weekday: 'short', month: 'short', day: 'numeric' });
+    const d = fmt(c, innerWidth > 1200 ? { weekday: 'long', month: 'long', day: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' });
+    return isToday ? `Today · ${d}` : d;
   }
-  switch (app.view) {
-    case 'day': return innerWidth > 1200
-      ? fmt(c, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-      : fmt(c, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-    case 'week':
-      if (start.getMonth() === last.getMonth()) return fmt(start, { month: 'long', year: 'numeric' });
-      if (start.getFullYear() === last.getFullYear()) return `${fmt(start, { month: 'short' })} – ${fmt(last, { month: 'short', year: 'numeric' })}`;
-      return `${fmt(start, { month: 'short', year: 'numeric' })} – ${fmt(last, { month: 'short', year: 'numeric' })}`;
-    default: return fmt(c, { month: 'long', year: 'numeric' });
-  }
+  // Month. Phones: "Nov", or "Nov 2027" when not this year.
+  if (narrow) return fmt(c, { month: 'short', ...(c.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) });
+  return fmt(c, { month: 'long', year: 'numeric' });
 }
 
 export function step(dir) {
   const c = app.cursor;
-  switch (app.view) {
-    case 'day': app.cursor = addDays(c, dir); break;
-    case 'week': app.cursor = addDays(c, 7 * dir); break;
-    default: app.cursor = new Date(c.getFullYear(), c.getMonth() + dir, 1);
-  }
+  if (app.view === 'today') app.cursor = addDays(c, dir);
+  else app.cursor = new Date(c.getFullYear(), c.getMonth() + dir, 1);
 }
 
+/** Open the Today screen for a particular date (from Month's day numbers and "+N more"). */
 export function goToDay(date) {
   app.cursor = startOfDay(date);
-  app.setView('day');
+  app.setView('today');
 }
 
 // ── Shared bits ──
@@ -66,7 +52,7 @@ export function goToDay(date) {
 const isAllDayLike = (o) => o.allDay || o.end - o.start >= DAY_MS;
 
 /** Round tick-box used to complete an event. */
-function check(o) {
+export function check(o) {
   const done = isDone(o);
   const auto = isAutoDone(o);
   const tip = auto ? 'Completed automatically (time has passed)' : done ? 'Mark not complete' : 'Mark complete';
@@ -76,174 +62,9 @@ function check(o) {
 
 export function renderView(el) {
   app.occMap.clear();
-  if (app.view === 'day' || app.view === 'week') renderTimeline(el, app.view === 'day' ? 1 : 7);
+  clearInterval(app._todayTimer);
+  if (app.view === 'today') renderToday(el);
   else renderMonth(el);
-}
-
-// ─────────────────────── Day / Week: hours across the top ───────────────────────
-
-/** Puts overlapping events into separate horizontal lanes. Returns the lane count. */
-function assignLanes(segs, minVisMinutes) {
-  segs.sort((a, b) => a.s - b.s || b.e - a.e);
-  const ends = [];
-  for (const seg of segs) {
-    const visEnd = Math.max(seg.e, seg.s + minVisMinutes);
-    let i = ends.findIndex((e) => e <= seg.s);
-    if (i === -1) { i = ends.length; ends.push(visEnd); } else ends[i] = visEnd;
-    seg.lane = i;
-  }
-  return ends.length;
-}
-
-function renderTimeline(el, nDays) {
-  const { start, end } = viewRange();
-  const today = new Date();
-  const occs = occurrences(start, end);
-  const days = Array.from({ length: nDays }, (_, i) => addDays(start, i));
-  const narrow = isNarrow();
-  const HW = nDays === 1 ? (narrow ? 84 : 120) : (narrow ? 64 : 96); // pixels per hour
-  const LANE = nDays === 1 ? (narrow ? 58 : 66) : (narrow ? 38 : 46); // height of one event row
-  const minVis = (100 / HW) * 60; // minutes that 100px covers, so short events still show a title
-  const wd = weekdayNames('short');
-
-  const prev = el.querySelector('.tl');
-  const sameLayout = el.dataset.layout === `${app.view}:${toDateKey(start)}`;
-  const prevLeft = prev?.scrollLeft, prevTop = prev?.scrollTop;
-
-  let hours = '';
-  for (let h = 0; h < 24; h++) hours += `<div class="tl-hour"><span>${fmtHourLabel(h)}</span></div>`;
-
-  let rows = '';
-  for (const d of days) {
-    const dEnd = addDays(d, 1);
-    const isToday = sameDay(d, today);
-
-    // All-day events go in the label column on the left.
-    const allDay = occs.filter((o) => isAllDayLike(o) && o.start < dEnd && o.end > d);
-    const adChips = allDay.map((o) => `<div class="chip bar${isDone(o) ? ' done' : ''}" style="--c:${colorOf(o.event)}" data-occ="${esc(o.id)}" title="${esc(o.event.title)}">${check(o)}<span class="tt">${esc(o.event.title || '(No title)')}</span></div>`).join('');
-
-    // Timed events become blocks positioned by time.
-    const segs = occs.filter((o) => !isAllDayLike(o) && o.start < dEnd && o.end > d).map((o) => {
-      const s = Math.max(o.start, d), e = Math.min(o.end, dEnd);
-      return { o, s: (s - d) / 60000, e: Math.max((e - d) / 60000, (s - d) / 60000) };
-    });
-    const lanes = assignLanes(segs, minVis);
-    let blocks = '';
-    for (const seg of segs) {
-      const { o } = seg;
-      const left = (seg.s / 60) * HW;
-      // At least ~100px wide so the title is readable (lanes already leave room for this).
-      const width = Math.max(((seg.e - seg.s) / 60) * HW, ((minVis) / 60) * HW) - 4;
-      const top = 8 + seg.lane * (LANE + 6);
-      const title = esc(o.event.title || '(No title)');
-      const time = fmtTimeRange(o.start, o.end);
-      blocks += `<div class="tev${isDone(o) ? ' done' : ''}" data-occ="${esc(o.id)}"
-        style="left:${left}px;width:${width}px;top:${top}px;height:${LANE}px;--c:${colorOf(o.event)}" title="${title}, ${esc(time)}">
-        ${check(o)}<div class="tx"><div class="t">${title}</div><div class="s">${esc(time)}${o.event.location && nDays === 1 ? ` · ${esc(o.event.location)}` : ''}</div></div></div>`;
-    }
-    if (isToday) blocks += `<div class="now" style="left:${((today - d) / 3600000) * HW}px"></div>`;
-    const trackH = 16 + Math.max(lanes, 1) * (LANE + 6);
-
-    rows += `<div class="tl-row${isToday ? ' today' : ''}">
-      <div class="tl-label" data-day="${toDateKey(d)}">
-        <div class="tl-date" data-goto="${toDateKey(d)}"><span class="wd">${wd[d.getDay()]}</span><span class="dn">${d.getDate()}</span></div>
-        <div class="tl-allday">${adChips}</div>
-      </div>
-      <div class="tl-track" data-day="${toDateKey(d)}" style="min-height:${trackH}px">${blocks}</div>
-    </div>`;
-  }
-
-  el.innerHTML = `<div class="tl ${nDays === 1 ? 'tl-day' : 'tl-week'}" style="--hw:${HW}px">
-    <div class="tl-inner">
-      <div class="tl-head"><div class="tl-corner"></div><div class="tl-hours">${hours}</div></div>
-      ${rows}
-    </div></div>`;
-  el.dataset.layout = `${app.view}:${toDateKey(start)}`;
-
-  const scroller = el.querySelector('.tl');
-  if (sameLayout && prevLeft != null) { scroller.scrollLeft = prevLeft; scroller.scrollTop = prevTop; }
-  else {
-    const inRange = today >= start && today < end;
-    scroller.scrollLeft = Math.max(0, (inRange ? today.getHours() + today.getMinutes() / 60 - 1 : 7.5) * HW);
-  }
-  wireTimeline(el, HW);
-}
-
-function wireTimeline(el, HW) {
-  // Click empty space in the all-day area to make an all-day event.
-  el.querySelectorAll('.tl-allday').forEach((a) => {
-    a.onclick = (e) => {
-      if (e.target.closest('[data-occ],[data-done]')) return;
-      const day = new Date(a.parentElement.dataset.day + 'T00:00');
-      openEditor({ start: day, end: day, allDay: true });
-    };
-  });
-
-  // Click (touch) or click-and-drag (mouse) on a track to create a timed event.
-  el.querySelectorAll('.tl-track').forEach((track) => {
-    const day = new Date(track.dataset.day + 'T00:00');
-    const minsAt = (clientX) => {
-      const x = clientX - track.getBoundingClientRect().left;
-      return Math.max(0, Math.min(24 * 60, Math.floor((x / HW) * 60 / 15) * 15));
-    };
-    const at = (m) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, m);
-
-    track.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('.tev')) return;
-      e.preventDefault();
-      const m0 = Math.floor(minsAt(e.clientX) / 30) * 30;
-      let m1 = m0 + 30;
-      const ghost = document.createElement('div');
-      ghost.className = 'ghost';
-      track.append(ghost);
-      const draw = () => {
-        const a = Math.min(m0, m1), b = Math.max(m0, m1);
-        ghost.style.left = `${(a / 60) * HW}px`;
-        ghost.style.width = `${((b - a) / 60) * HW}px`;
-        ghost.textContent = fmtTimeRange(at(a), at(b));
-      };
-      draw();
-      let moved = false;
-      const move = (ev) => {
-        const m = minsAt(ev.clientX);
-        const nm = m >= m0 ? Math.max(m0 + 15, Math.ceil(m / 15) * 15) : m;
-        if (nm !== m1) { m1 = nm; moved = true; draw(); }
-      };
-      const up = () => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-        ghost.remove();
-        const a = Math.min(m0, m1);
-        let b = Math.max(m0, m1);
-        if (!moved) b = a + 60;
-        openEditor({ start: at(a), end: at(b) });
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-    });
-
-    track.addEventListener('click', (e) => {
-      if (e.pointerType === 'mouse' || e.target.closest('.tev')) return;
-      if (e.pointerType === undefined && matchMedia('(hover: hover)').matches) return; // handled by pointerdown
-      const m = Math.floor(minsAt(e.clientX) / 30) * 30;
-      openEditor({ start: at(m), end: at(m + 60) });
-    });
-  });
-
-  // Keep the "now" line moving, and refresh when events pass (auto-complete).
-  clearInterval(app._nowTimer);
-  app._nowTimer = setInterval(() => {
-    const now = new Date();
-    const line = el.querySelector('.now');
-    if (line) {
-      const day = new Date(line.parentElement.dataset.day + 'T00:00');
-      if (!sameDay(day, now)) { app.render(); return; }
-      line.style.left = `${((now - day) / 3600000) * HW}px`;
-    }
-    // Something just finished? Re-draw so it shows as completed.
-    const justEnded = [...app.occMap.values()].some((o) => o.end <= now && o.end > now - 60000);
-    if (justEnded) app.render();
-  }, 60000);
 }
 
 // ───────────────────────────── Month ─────────────────────────────
@@ -292,13 +113,62 @@ function renderMonth(el) {
   el.dataset.layout = `month:${toDateKey(start)}`;
   fitMonthCells(el);
 
+  wireMonthDrag(el);
+
   el.querySelectorAll('.m-cell').forEach((c) => {
     c.onclick = (e) => {
-      if (e.target.closest('[data-occ],[data-goto],[data-done]')) return;
+      if (app._dragJustEnded || e.target.closest('[data-occ],[data-goto],[data-done]')) return;
       const day = new Date(c.dataset.day + 'T00:00');
+      // Phone: open that day. Mac: quick add straight onto that day.
       if (isNarrow()) { goToDay(day); return; }
-      openEditor({ start: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9), end: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 10) });
+      e.stopPropagation(); // keep the click from closing the box it just opened
+      openQuickAdd(day);
     };
+  });
+}
+
+/** Drag an event chip onto another day (mouse). */
+function wireMonthDrag(el) {
+  el.querySelectorAll('.m-cell .chip').forEach((chip) => {
+    chip.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('.ck')) return;
+      const o = app.occMap.get(chip.dataset.occ);
+      if (!o) return;
+      e.preventDefault();
+      const fromDay = new Date(chip.closest('.m-cell').dataset.day + 'T00:00');
+      const sx = e.clientX, sy = e.clientY;
+      const rect = chip.getBoundingClientRect();
+      let ghost = null, target = null;
+      const move = (m) => {
+        if (!ghost) {
+          if (Math.hypot(m.clientX - sx, m.clientY - sy) < 5) return;
+          ghost = chip.cloneNode(true);
+          ghost.classList.add('drag-ghost');
+          ghost.style.width = `${rect.width}px`;
+          document.body.append(ghost);
+          chip.classList.add('drag-src');
+        }
+        ghost.style.left = `${m.clientX - (sx - rect.left)}px`;
+        ghost.style.top = `${m.clientY - (sy - rect.top)}px`;
+        const cell = document.elementFromPoint(m.clientX, m.clientY)?.closest('.m-cell');
+        if (cell !== target) { target?.classList.remove('drop'); target = cell; target?.classList.add('drop'); }
+      };
+      const up = async () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        if (!ghost) return; // plain click
+        ghost.remove();
+        chip.classList.remove('drag-src');
+        target?.classList.remove('drop');
+        app._dragJustEnded = true;
+        setTimeout(() => { app._dragJustEnded = false; }, 60);
+        if (!target) return;
+        const dDay = diffDays(fromDay, new Date(target.dataset.day + 'T00:00'));
+        if (dDay) await rescheduleOcc(o, addDays(o.start, dDay), addDays(o.end, dDay));
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
   });
 }
 
@@ -330,6 +200,14 @@ function fitMonthCells(el) {
 
 export function wireViewClicks(el) {
   el.addEventListener('click', (e) => {
+    if (app._dragJustEnded) return; // a drag shouldn't also open the event
+    const push = e.target.closest('[data-push]');
+    if (push) {
+      e.stopPropagation();
+      const o = app.occMap.get(push.dataset.push);
+      if (o) pushToTomorrow(o);
+      return;
+    }
     const ck = e.target.closest('[data-done]');
     if (ck) {
       e.stopPropagation();
