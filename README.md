@@ -1,31 +1,30 @@
 # Calendar
 
-A personal calendar app, similar to Google Calendar. It syncs across iPhone/iPad, Mac and Windows, and runs entirely on free services.
+A personal calendar app, synced across iPhone/iPad, Mac and Windows, running entirely on free services.
 
-- **Setup:** see [SETUP.md](SETUP.md)
+- **Live:** https://bodenxbodee.github.io/calendar/
 - **Try it locally:** `python3 devserver.py`, then open http://localhost:8080
+- **Setting it up from scratch:** see [SETUP.md](SETUP.md)
 
 ## How it's built
 
 - Plain HTML/CSS/JavaScript with no build step. It's an installable web app (PWA) hosted on GitHub Pages.
-- **Firebase Firestore** stores events, syncs them in real time, and keeps working offline. **Firebase Auth** handles sign-in with Google.
-- **Reminders:** `.github/workflows/reminders.yml` runs `reminders/send.js` about every 5 minutes on GitHub Actions and sends Web Push notifications.
+- **Firebase Firestore** stores events, syncs them in real time and keeps working offline. **Firebase Auth** handles sign-in with Google.
+- Updates install themselves: bump `VERSION` in `sw.js` when changing app files, and each device switches to the new version the next time the app is opened.
 
 | File | Purpose |
 |---|---|
-| `js/config.js` | Your Firebase settings and push public key |
-| `js/app.js` | Start-up, sign-in, sidebar, shortcuts |
-| `js/views.js` | Day, Week, Month and Schedule views |
-| `js/editor.js` | Event details and the edit form (including repeat rules) |
-| `js/settings.js` | Settings, notifications, import, backup |
+| `js/config.js` | Firebase settings |
+| `js/app.js` | Start-up, sign-in, top bar, shortcuts, auto-updates |
+| `js/views.js` | Day and Week (time runs left → right) and Month |
+| `js/editor.js` | Event details and the edit form (repeat rules, completing events) |
+| `js/settings.js` | Settings, import, backup |
 | `js/store.js` | Data layer (local mode or Firebase) |
-| `js/recurrence.js` | Repeat-rule expansion (also used by the reminder sender) |
+| `js/recurrence.js` | Repeat-rule expansion |
 | `js/ics.js` | Google Calendar `.ics` import |
-| `sw.js` | Offline cache and push notification display |
-| `reminders/` | The reminder sender that runs on GitHub |
-| `firestore.rules` | Database security rules (paste into the Firebase console) |
-| `keys.html` | Generates the push-notification key pair |
+| `sw.js` | Offline cache and automatic updates |
+| `firestore.rules` | Database security rules (pasted into the Firebase console) |
 
 ## Keyboard shortcuts
 
-`c` create · `t` today · `d` / `w` / `m` / `a` day/week/month/schedule · `j`/`k` or ←/→ next/previous
+`c` create · `t` today · `d` / `w` / `m` day/week/month · `j`/`k` or ←/→ next/previous

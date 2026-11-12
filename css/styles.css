@@ -333,10 +333,6 @@ svg { fill: currentColor; }
 .r-ends input[type=radio] { min-height: 0; accent-color: var(--bordeaux); }
 .cal-pick { display: flex; align-items: center; gap: 10px; }
 .cal-pick select { flex: 1; }
-.reminders { display: flex; flex-direction: column; gap: 6px; }
-.reminders:empty { display: none; }
-.rem-row { display: flex; gap: 4px; align-items: center; }
-.rem-row select { flex: 1; }
 .f-error { color: var(--danger); margin: 8px 0 0; }
 .f-error:empty { display: none; }
 

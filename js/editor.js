@@ -2,7 +2,7 @@
 
 import {
   addDays, toDateKey, fromDateKey, toTimeInput, combine, diffDays, sameDay, startOfDay,
-  weekdayNames, ordinal, weekdayOrdinal, isLastWeekdayOfMonth, fmt, fmtTimeShort, humanizeMinutes, MIN_MS,
+  weekdayNames, ordinal, weekdayOrdinal, isLastWeekdayOfMonth, fmt, fmtTimeShort, MIN_MS,
 } from './dates.js';
 import { eventBounds, describeRecurrence } from './recurrence.js';
 import { newId } from './store.js';
@@ -32,7 +32,6 @@ export function openDetails(o) {
   detailsOcc = o;
   const ev = o.event;
   const cal = calOf(ev);
-  const rem = (ev.reminders || []).map((m) => reminderLabel(m, ev.allDay)).join('<br>');
   const icon = (d) => `<svg viewBox="0 0 24 24"><path d="${d}"/></svg>`;
   $('#details-body').innerHTML = `
     <span class="dot" style="--c:${cal.color}"></span>
@@ -42,7 +41,6 @@ export function openDetails(o) {
     ${ev.location ? `${icon('M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z')}
       <div>${/^https?:\/\//.test(ev.location) ? linkify(ev.location) : `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}" target="_blank" rel="noopener">${esc(ev.location)}</a>`}</div>` : ''}
     ${ev.notes ? `${icon('M3 18h12v-2H3v2zM3 6v2h18V6H3zm0 7h18v-2H3v2z')}<div class="d-notes">${linkify(ev.notes)}</div>` : ''}
-    ${rem ? `${icon('M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z')}<div>${rem}</div>` : ''}
     ${icon('M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2zm3 18H5V8h14v11z')}<div>${esc(cal.name)}</div>
     <div class="d-complete">${isAutoDone(o)
       ? '<span class="done-note"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>Completed automatically — this event has passed</span>'
@@ -80,42 +78,6 @@ async function deleteOcc(o) {
 
 let editing = null; // { master, occ } | null for new
 let customRec = null;
-
-const TIMED_REMINDERS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080];
-const ALLDAY_REMINDERS = [0, 1440, 2880, 10080];
-
-function reminderLabel(min, allDay) {
-  if (allDay) {
-    if (min === 0) return 'On the day at 9am';
-    if (min === 1440) return 'The day before at 9am';
-    return `${humanizeMinutes(min)} before at 9am`;
-  }
-  return min === 0 ? 'At time of event' : `${humanizeMinutes(min)} before`;
-}
-
-function addReminderRow(min, allDay) {
-  const opts = [...(allDay ? ALLDAY_REMINDERS : TIMED_REMINDERS)];
-  if (!opts.includes(min)) opts.push(min);
-  opts.sort((a, b) => a - b);
-  const row = document.createElement('div');
-  row.className = 'rem-row';
-  row.innerHTML = `<select>${opts.map((m) => `<option value="${m}"${m === min ? ' selected' : ''}>${esc(reminderLabel(m, allDay))}</option>`).join('')}</select>
-    <button type="button" class="icon-btn small" aria-label="Remove notification"><svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>`;
-  row.querySelector('button').onclick = () => row.remove();
-  $('#f-reminders').append(row);
-}
-
-function setReminders(list, allDay) {
-  $('#f-reminders').innerHTML = '';
-  list.forEach((m) => addReminderRow(m, allDay));
-}
-const getReminders = () => [...new Set($$('#f-reminders select').map((s) => Number(s.value)))].sort((a, b) => a - b);
-
-function defaultReminders(allDay) {
-  const s = app.store.settings;
-  const v = allDay ? s.defaultAllDayReminder : s.defaultReminder;
-  return v === null || v === undefined || v < 0 ? [] : [v];
-}
 
 // ── Repeat options ──
 
@@ -258,7 +220,6 @@ export function openEditor(opts = {}) {
       data = {
         title: '', allDay: !!opts.allDay, recurrence: null, location: '', notes: '',
         calendarId: app.lastCalendarId && store.calendarById(app.lastCalendarId) ? app.lastCalendarId : store.defaultCalendarId(),
-        reminders: defaultReminders(!!opts.allDay),
       };
     }
   }
@@ -270,7 +231,7 @@ export function openEditor(opts = {}) {
   const lastDay = data.allDay ? addDays(end, -1) : end;
   $('#f-edate').value = toDateKey(lastDay < start ? start : lastDay);
   $('#f-etime').value = toTimeInput(end);
-  toggleAllDay(false);
+  toggleAllDay();
 
   // Calendars
   const cals = [...store.calendars].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -284,7 +245,6 @@ export function openEditor(opts = {}) {
   $('#custom-rec').hidden = $('#f-repeat').value !== 'custom';
   if ($('#f-repeat').value === 'custom') renderCustom();
 
-  setReminders(data.reminders || [], !!data.allDay);
   $('#f-location').value = data.location || '';
   $('#f-notes').value = data.notes || '';
 
@@ -292,11 +252,10 @@ export function openEditor(opts = {}) {
   if (!opts.occ) setTimeout(() => $('#f-title').focus(), 50);
 }
 
-function toggleAllDay(convertReminders = true) {
+function toggleAllDay() {
   const ad = $('#f-allday').checked;
   $('#f-stime').hidden = ad;
   $('#f-etime').hidden = ad;
-  if (convertReminders) setReminders(defaultReminders(ad), ad);
 }
 
 function updateCalDot() {
@@ -314,7 +273,6 @@ function readForm() {
     allDay,
     calendarId: $('#f-cal').value,
     recurrence: readRecurrence(),
-    reminders: getReminders(),
     location: $('#f-location').value.trim(),
     notes: $('#f-notes').value.trim(),
   };
@@ -417,14 +375,8 @@ export function initEditor() {
   closeOnBackdrop(dlg);
   $('#event-form').addEventListener('submit', (e) => { e.preventDefault(); save(); });
   dlg.querySelector('[data-act=cancel]').onclick = () => dlg.close();
-  $('#f-allday').onchange = () => toggleAllDay(true);
+  $('#f-allday').onchange = () => toggleAllDay();
   $('#f-cal').onchange = updateCalDot;
-  $('#add-reminder').onclick = () => {
-    const ad = $('#f-allday').checked;
-    const existing = getReminders();
-    const next = (ad ? ALLDAY_REMINDERS : TIMED_REMINDERS).find((m) => !existing.includes(m) && m >= (ad ? 0 : 10)) ?? 0;
-    addReminderRow(next, ad);
-  };
 
   // Keep the duration when the start moves (like Google Calendar).
   let prevStart = null;

@@ -6,7 +6,6 @@
 //   users/{uid}                     { email, tz, settings, eventsChangedAt }
 //   users/{uid}/calendars/{id}      { name, color, hidden, order }
 //   users/{uid}/events/{id}         event (see recurrence.js)
-//   users/{uid}/pushSubs/{id}       { sub, ua, createdAt }   (for reminders)
 
 import { firebaseConfig } from './config.js';
 
@@ -23,7 +22,7 @@ export const COLORS = [
   { name: 'Mocha', value: '#7a5c4a' }, { name: 'Taupe', value: '#8c7765' },
 ];
 
-export const DEFAULT_SETTINGS = { weekStart: 0, defaultReminder: 10, defaultAllDayReminder: 1440 };
+export const DEFAULT_SETTINGS = { weekStart: 0 };
 
 export const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');
 
@@ -97,7 +96,6 @@ class LocalStore extends BaseStore {
     this._save();
   }
   async saveSettings(patch) { Object.assign(this.settings, patch); this._save(); }
-  async savePushSubscription() { throw new Error('Notifications need the synced (Firebase) version.'); }
   async signOut() {}
 }
 
@@ -153,7 +151,7 @@ class FirebaseStore extends BaseStore {
     let gotCals = false, gotEvents = false;
     const markReady = () => { if (gotCals && gotEvents && !this.ready) { this.ready = true; this.emit('data'); } };
 
-    // Remember the time zone so the reminder sender formats times correctly.
+    // Note the last time this account was used (handy for spotting stray sign-ins).
     setDoc(uref, { email: this.user.email || null, tz: tz(), lastSeen: serverTimestamp() }, { merge: true }).catch(this._err);
 
     this._unsubs.push(onSnapshot(uref, (snap) => {
@@ -256,14 +254,6 @@ class FirebaseStore extends BaseStore {
     this.emit('data');
   }
 
-  async savePushSubscription(sub) {
-    const json = JSON.parse(JSON.stringify(sub));
-    const id = await sha1(json.endpoint);
-    await this.F.setDoc(this.F.doc(this._col('pushSubs'), id), {
-      sub: json, ua: navigator.userAgent, createdAt: this.F.serverTimestamp(),
-    });
-  }
-
   // ── Sign-in ──
   signInWithGoogle() {
     const p = new this.A.GoogleAuthProvider();
@@ -279,11 +269,6 @@ class FirebaseStore extends BaseStore {
   resetPassword(email) { return this.A.sendPasswordResetEmail(this.auth, email); }
   async reloadUser() { await this.auth.currentUser?.reload(); await this.auth.currentUser?.getIdToken(true); }
   signOut() { return this.A.signOut(this.auth); }
-}
-
-async function sha1(text) {
-  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function createStore() {

@@ -1,55 +1,10 @@
-// Settings dialog: account, notifications, preferences, import, backup, install help.
+// Settings dialog: account, preferences, import, backup, install help.
 
-import { vapidPublicKey } from './config.js';
 import { COLORS, newId } from './store.js';
 import { parseICS } from './ics.js';
 import { app, $, esc, toast, closeOnBackdrop } from './ctx.js';
 
-export const APP_VERSION = '1.0.0';
-
-const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-
-function b64ToBytes(b64) {
-  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
-  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
-}
-
-// ── Notifications ──
-
-export function pushSupport() {
-  if (app.store.mode !== 'firebase') return { ok: false, why: 'Notifications work once syncing is set up (SETUP.md).' };
-  if (!vapidPublicKey) return { ok: false, why: 'The reminder sender isn’t set up yet (SETUP.md, step 6).' };
-  if (isIOS() && !isStandalone()) return { ok: false, why: 'On iPhone/iPad, first add this app to your Home Screen (Share → Add to Home Screen), then open it from there.' };
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return { ok: false, why: 'This browser doesn’t support notifications.' };
-  return { ok: true };
-}
-
-export async function enablePush({ silent = false } = {}) {
-  const sup = pushSupport();
-  if (!sup.ok) { if (!silent) toast(sup.why, null, 8000); return false; }
-  if (silent && Notification.permission !== 'granted') return false;
-  const perm = silent ? 'granted' : await Notification.requestPermission();
-  if (perm !== 'granted') { if (!silent) toast('Notifications are blocked. Allow them in your browser/system settings.', null, 8000); return false; }
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(vapidPublicKey) });
-    await app.store.savePushSubscription(sub);
-    if (!silent) toast('Notifications are on for this device');
-    return true;
-  } catch (e) {
-    console.error(e);
-    if (!silent) toast(`Couldn’t turn on notifications: ${e.message}`, null, 8000);
-    return false;
-  }
-}
-
-async function testNotification() {
-  const reg = await navigator.serviceWorker.ready;
-  await reg.showNotification('Test notification', { body: 'Notifications are working on this device.', icon: 'icons/icon-192.png', badge: 'icons/badge-72.png' });
-}
+export const APP_VERSION = '1.3.0';
 
 // ── Import (.ics) ──
 
@@ -112,8 +67,6 @@ export function openSettings() {
   const { store } = app;
   const s = store.settings;
   const u = store.user || {};
-  const sup = pushSupport();
-  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
   const cals = [...store.calendars].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const remOpt = (v, cur, label) => `<option value="${v}"${String(cur) === String(v) ? ' selected' : ''}>${label}</option>`;
 
@@ -128,22 +81,9 @@ export function openSettings() {
     </section>
 
     <section>
-      <h3>Notifications on this device</h3>
-      ${sup.ok
-        ? `<p>${perm === 'granted' ? 'Allowed. Reminders will pop up on this device.' : 'Turn on to get reminders on this device, even when the app is closed.'} Reminders can arrive up to ~5 minutes late.</p>
-           <div class="row"><button class="btn btn-primary" id="s-push">${perm === 'granted' ? 'Re-register this device' : 'Turn on notifications'}</button>
-           ${perm === 'granted' ? '<button class="btn" id="s-test">Show a test notification</button>' : ''}</div>`
-        : `<p>${esc(sup.why)}</p>`}
-    </section>
-
-    <section>
       <h3>Preferences</h3>
       <label class="setting">Week starts on
         <select id="s-week">${remOpt(0, s.weekStart, 'Sunday')}${remOpt(1, s.weekStart, 'Monday')}${remOpt(6, s.weekStart, 'Saturday')}</select></label>
-      <label class="setting">Default notification (timed events)
-        <select id="s-rem">${remOpt(-1, s.defaultReminder ?? -1, 'None')}${[0, 5, 10, 15, 30, 60, 1440].map((m) => remOpt(m, s.defaultReminder, m === 0 ? 'At time of event' : m === 1440 ? '1 day before' : m >= 60 ? `${m / 60} hour before` : `${m} minutes before`)).join('')}</select></label>
-      <label class="setting">Default notification (all-day events)
-        <select id="s-remad">${remOpt(-1, s.defaultAllDayReminder ?? -1, 'None')}${remOpt(0, s.defaultAllDayReminder, 'On the day at 9am')}${remOpt(1440, s.defaultAllDayReminder, 'The day before at 9am')}</select></label>
     </section>
 
     <section>
@@ -174,11 +114,7 @@ export function openSettings() {
 
   const b = $('#settings-body');
   b.querySelector('#s-signout')?.addEventListener('click', async () => { $('#settings-dlg').close(); await store.signOut(); });
-  b.querySelector('#s-push')?.addEventListener('click', async () => { await enablePush(); openSettings(); });
-  b.querySelector('#s-test')?.addEventListener('click', testNotification);
   b.querySelector('#s-week').onchange = (e) => store.saveSettings({ weekStart: Number(e.target.value) });
-  b.querySelector('#s-rem').onchange = (e) => store.saveSettings({ defaultReminder: Number(e.target.value) });
-  b.querySelector('#s-remad').onchange = (e) => store.saveSettings({ defaultAllDayReminder: Number(e.target.value) });
   b.querySelector('#s-imp').onclick = () => b.querySelector('#s-imp-file').click();
   b.querySelector('#s-imp-file').onchange = async (e) => {
     const files = [...e.target.files];

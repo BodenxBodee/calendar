@@ -5,7 +5,7 @@ import { sameDay } from './dates.js';
 import { app, $, $$, esc, toast, showDialog, confirmDialog, closeOnBackdrop, isNarrow } from './ctx.js';
 import { renderView, viewTitle, step, wireViewClicks } from './views.js';
 import { initEditor, openEditor } from './editor.js';
-import { initSettings, openSettings, enablePush } from './settings.js';
+import { initSettings, openSettings } from './settings.js';
 
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -269,7 +269,6 @@ async function start() {
         deniedShown = false;
         showScreen('app');
         app.render();
-        if (store.mode === 'firebase') enablePush({ silent: true });
       } else {
         showScreen('auth');
       }
@@ -304,24 +303,28 @@ function registerServiceWorker() {
     navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
     return;
   }
+  // Updates install by themselves: the new version downloads in the background,
+  // takes over, and the page reloads once you're not in the middle of something.
   navigator.serviceWorker.register('sw.js').then((reg) => {
-    const offerUpdate = (w) => toast('A new version is available.', { label: 'Update', run: () => w.postMessage('skipWaiting') }, 15000);
-    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-    reg.addEventListener('updatefound', () => {
-      const w = reg.installing;
-      w?.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w);
-      });
-    });
-    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+    if (reg.waiting) reg.waiting.postMessage('skipWaiting'); // an older version left one waiting
+    const check = () => reg.update().catch(() => {});
+    // Check whenever the app is opened or brought back to the front (iPhone keeps
+    // Home Screen apps in memory, so "opening" is often just coming back to it).
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    setInterval(check, 30 * 60 * 1000);
   }).catch((e) => console.warn('Service worker failed', e));
 
-  let reloaded = false;
+  let reloading = false;
   const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloaded || !hadController) return;
-    reloaded = true;
-    location.reload();
+    if (reloading || !hadController) return;
+    reloading = true;
+    // Don't yank the page away while an event or settings window is open.
+    const reloadWhenIdle = () => {
+      if (document.querySelector('dialog[open]')) { setTimeout(reloadWhenIdle, 1500); return; }
+      location.reload();
+    };
+    reloadWhenIdle();
   });
 }
 

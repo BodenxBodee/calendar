@@ -13,6 +13,3 @@ export const firebaseConfig = {
   messagingSenderId: '610062260514',
   appId: '1:610062260514:web:e508445d1385e3ea32ed7b',
 };
-
-// Public half of your push-notification key pair (see SETUP.md, step 6).
-export const vapidPublicKey = 'BLxNpKxiSepyAEaTN6LmJLwpCaq4432TvhoaFKMmqCHhWg6LP0TZD9IRLJSzaR0oCeOsvqpQdKHQypn186ku2y0';

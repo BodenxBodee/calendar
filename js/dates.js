@@ -1,5 +1,5 @@
 // Date helpers. All "local" functions use the device's time zone.
-// Shared by the app (browser) and the reminder sender (Node).
+// Used throughout the app.
 
 export const DAY_MS = 86400000;
 export const MIN_MS = 60000;
