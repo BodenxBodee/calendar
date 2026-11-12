@@ -1,6 +1,6 @@
 // Service worker: makes the app load offline, and installs updates automatically.
 // Bump VERSION whenever you change app files so devices pick up the update.
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.3.1';
 const CACHE = `calendar-${VERSION}`;
 
 const APP_FILES = [
@@ -36,13 +36,20 @@ self.addEventListener('fetch', (e) => {
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (!sameOrigin && !isSdk && !isFont) return; // Firestore / sign-in traffic goes straight to the network
 
-  // Pages: network first so updates show up, fall back to cache offline.
+  // Pages: network first so updates show up. If we're offline, or the website
+  // answers with an error (e.g. a brief 404 while GitHub is publishing an update),
+  // open the copy of the app saved on this device instead.
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).catch(() => caches.match('index.html', { ignoreSearch: true })));
+    const fallback = () => caches.match('index.html', { ignoreSearch: true })
+      .then((hit) => hit || caches.match('./', { ignoreSearch: true }));
+    e.respondWith(fetch(req)
+      .then((res) => (res.ok ? res : fallback().then((hit) => hit || res)))
+      .catch(() => fallback()));
     return;
   }
   // Everything else: cache first, then network (and remember it).
   e.respondWith(caches.match(req, { ignoreSearch: sameOrigin }).then((hit) => hit || fetch(req).then((res) => {
+    // Only remember good responses, so a temporary error never gets stuck in the cache.
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
     return res;
   })));

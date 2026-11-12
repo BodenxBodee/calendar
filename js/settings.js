@@ -4,7 +4,7 @@ import { COLORS, newId } from './store.js';
 import { parseICS } from './ics.js';
 import { app, $, esc, toast, closeOnBackdrop } from './ctx.js';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 
 // ── Import (.ics) ──
 
